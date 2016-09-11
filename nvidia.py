@@ -18,6 +18,7 @@ pattern_paren = re.compile(r'([^(]*)\(([^)]*)\)(.*)')
 pattern_bracket = re.compile(r'([^[]*)\(([^]]*)\)(.*)')
 
 pattern_names = [
+    [re.compile('GeForce MX (\d)0(\d0)(M?)'), 1],
     [re.compile('GeForce [A-Z]+ (\d)0(\d0)(M?)'), 3],
     [re.compile('GeForce [A-Z]+ (\d)(\d\d)(M?)'), 2],
     [re.compile('GeForce (\d)(\d0)0(M?) [A-Z]+'), 1],
@@ -46,6 +47,7 @@ def expand_line(line):
     if not line.startswith('GeForce'):
         return []
 
+    # http://stackoverflow.com/a/33527584
     top_parts = re.split(r',(?!(?:[^(]*\([^)]*\))*[^()]*\))', line)
 
     results = []
@@ -164,6 +166,7 @@ def main():
     #pl.legend(loc='best', prop={'size': 5})
     fig.tight_layout()
     fig.savefig('plot-nvidia.pdf')
+    fig.savefig('plot-nvidia.svg')
 
     sqrt = int(math.sqrt(len(unified)))
     rows = sqrt
@@ -200,6 +203,7 @@ def main():
 
     fig_grid.tight_layout()
     fig_grid.savefig('plot-grid.pdf')
+    fig_grid.savefig('plot-grid.svg')
 
 
 def _parse_args():

@@ -15,11 +15,18 @@ import matplotlib.pyplot as pl
 pattern_chip = re.compile(r'^(NV.{2,3})[^\t]*\t(.*)$')
 
 pattern_paren = re.compile(r'([^(]*)\(([^)]*)\)(.*)')
+pattern_bracket = re.compile(r'([^[]*)\(([^]]*)\)(.*)')
 
 pattern_names = [
-    [re.compile('GeForce [A-Z]+ (\d)0(\d0)'), 3],
-    [re.compile('GeForce [A-Z]+ (\d)(\d\d)'), 2],
-    [re.compile('GeForce (\d)(\d0)0 [A-Z]+'), 1],
+    [re.compile('GeForce [A-Z]+ (\d)0(\d0)(M?)'), 3],
+    [re.compile('GeForce [A-Z]+ (\d)(\d\d)(M?)'), 2],
+    [re.compile('GeForce (\d)(\d0)0(M?) [A-Z]+'), 1],
+    [re.compile('GeForce (\d)(\d{2})(M)'), 2],
+    [re.compile('GeForce (\d)(\d{2})(M?) Go'), 2],
+    [re.compile('GeForce (\d)(\d{2})0(M?) G.*'), 1],
+    [re.compile('GeForce (\d)(\d{2})0(M?)'), 1],
+    [re.compile('GeForce (\d)(\d{2})(M?)'), 2],
+    #[re.compile('GeForce(2)', 1],
 ]
 
 def coloriter(n):
@@ -49,20 +56,32 @@ def expand_line(line):
         if not top_part.startswith('GeForce'):
             top_part = 'GeForce ' + top_part
 
-        m = pattern_paren.match(top_part)
-        if m:
-            prefix, paren, suffix = m.groups()
+        results += [
+            element
+            for line in expand_paren(top_part, pattern_paren)
+            for element in expand_paren(line, pattern_bracket)
+        ]
 
-            words = [x.strip() for x in paren.split(',')]
-            if len(words) == 1:
-                factors = ['', words[0]]
-            else:
-                factors = words
+    return results
 
-            for elem in factors:
-                results.append(prefix + elem + suffix)
+
+def expand_paren(line, pattern):
+    results = []
+
+    m = pattern.match(line)
+    if m:
+        prefix, paren, suffix = m.groups()
+
+        words = [x.strip() for x in paren.split(',')]
+        if len(words) == 1:
+            factors = ['', words[0]]
         else:
-            results.append(top_part)
+            factors = words
+
+        for elem in factors:
+            results.append(prefix + elem + suffix)
+    else:
+        results.append(line)
 
     return results
 
@@ -71,9 +90,9 @@ def get_unified_id(name):
     for pattern, epoch in pattern_names:
         m = pattern.search(name)
         if m:
-            series, level = m.groups()
+            series, level, mobile = m.groups()
 
-            return (int(epoch), int(series), int(level))
+            return (int(epoch), int(series), int(level), mobile == 'M')
 
     print('ERROR', repr(name))
 
@@ -110,7 +129,7 @@ def main():
         if len(names) > 0
     }
 
-    #pp.pprint(chips)
+    pp.pprint(chips)
     pp.pprint(unified)
 
 #    for chip, lines in chips.items():
@@ -129,8 +148,8 @@ def main():
     i = 0
     for chip, points in sorted(unified.items()):
         if len(points) >= 1:
-            x = [epoch * 10 + series for epoch, series, level in points]
-            y = [level + i/40 for epoch, series, level in points]
+            x = [epoch * 10 + series for epoch, series, level, mobile in points]
+            y = [level + i/40 for epoch, series, level, mobile in points]
 
             x, y = zip(*sorted(zip(x, y)))
 
@@ -158,13 +177,21 @@ def main():
     for chip, points in sorted(unified.items()):
         print(i)
         if len(points) >= 1:
-            x = [epoch * 10 + series for epoch, series, level in points]
-            y = [level for epoch, series, level in points]
+            x = [epoch * 10 + series for epoch, series, level, mobile in points if not mobile]
+            y = [level for epoch, series, level, mobile in points if not mobile]
 
-            x, y = zip(*sorted(zip(x, y)))
+            x_mobile = [epoch * 10 + series for epoch, series, level, mobile in points if mobile]
+            y_mobile = [level for epoch, series, level, mobile in points if mobile]
 
             ax_grid = fig_grid.add_subplot(cols, rows, i + 1)
-            ax_grid.plot(x, y, label=chip, marker='o', linestyle='none')
+
+            if len(x) > 0:
+                x, y = zip(*sorted(zip(x, y)))
+                ax_grid.plot(x, y, label=chip, marker='o', linestyle='none', color='green')
+            if len(x_mobile) > 0:
+                x_mobile, y_mobile = zip(*sorted(zip(x_mobile, y_mobile)))
+                ax_grid.plot(x_mobile, y_mobile, label=chip, marker='x', linestyle='none', color='green')
+
             ax_grid.set_xlim(ax.get_xlim())
             ax_grid.set_ylim(ax.get_ylim())
             ax_grid.grid(True)
